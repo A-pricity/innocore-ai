@@ -231,16 +231,16 @@ python run.py
 
 ## 🙏 致谢
 
-- [HelloAgent](https://github.com/tsinghua-fib-lab/HelloAgent) - 多智能体框架
+- [HelloAgent](https://github.com/datawhalechina/hello-agents) - 多智能体框架
 - [FastAPI](https://fastapi.tiangolo.com/) - 现代 Web 框架
 - [LangChain](https://www.langchain.com/) - LLM 应用开发框架
 - [ArXiv API](https://arxiv.org/help/api) - 学术论文数据源
 
 ## 📮 联系方式
 
-- 项目主页：[GitHub](https://github.com/yourusername/innocore-ai)
-- 问题反馈：[Issues](https://github.com/yourusername/innocore-ai/issues)
-- 邮箱：your.email@example.com
+- 项目主页：[GitHub](https://github.com/A-pricity/innocore-ai)
+- 问题反馈：[Issues](https://github.com/A-pricity/innocore-ai/issues)
+- 邮箱：2827867731@qq.com
 
 ---
 
