@@ -8,21 +8,20 @@ from pydantic import BaseModel
 import logging
 import arxiv
 import os
-from langchain_openai import ChatOpenAI
 from core.config import get_config
+from core.llm_adapter import get_llm_adapter
 from utils.pdf_parser import pdf_parser
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-# 初始化 LLM
+# 初始化 LLM 适配器（基于 HelloAgent）
 config = get_config()
-llm = ChatOpenAI(
-    model=config.llm.model_name,
-    temperature=0.7,
-    api_key=config.llm.api_key,
-    base_url=config.llm.base_url
-) if config.llm.api_key else None
+try:
+    llm = get_llm_adapter() if config.llm.api_key else None
+except Exception as e:
+    logger.warning(f"LLM 初始化失败: {str(e)}")
+    llm = None
 
 # Pydantic模型
 class AnalysisRequest(BaseModel):

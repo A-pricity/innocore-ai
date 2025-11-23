@@ -103,17 +103,12 @@ async def validate_citation(request: CitationValidationRequest):
         if not verified:
             logger.info("尝试使用 AI 解析引用信息...")
             try:
-                from langchain_openai import ChatOpenAI
                 from core.config import get_config
+                from core.llm_adapter import get_llm_adapter
                 
                 config = get_config()
                 if config.llm.api_key:
-                    llm = ChatOpenAI(
-                        model=config.llm.model_name,
-                        temperature=0.1,
-                        api_key=config.llm.api_key,
-                        base_url=config.llm.base_url
-                    )
+                    llm = get_llm_adapter()
                     
                     prompt = f"""请从以下引用信息中提取关键元数据，并以 JSON 格式返回。
 

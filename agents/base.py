@@ -9,8 +9,8 @@ from datetime import datetime
 import json
 import logging
 
-from langchain_openai import ChatOpenAI
 from core.config import get_config
+from core.llm_adapter import get_llm_adapter
 from core.exceptions import AgentException, TimeoutException
 
 logger = logging.getLogger(__name__)
@@ -18,15 +18,11 @@ logger = logging.getLogger(__name__)
 class BaseAgent(ABC):
     """基础智能体抽象类"""
     
-    def __init__(self, name: str, llm: ChatOpenAI = None, 
+    def __init__(self, name: str, llm = None, 
                  max_steps: int = None, timeout: int = None):
         self.name = name
         self.config = get_config()
-        self.llm = llm or ChatOpenAI(
-            model=self.config.llm.model_name,
-            temperature=self.config.llm.temperature,
-            api_key=self.config.llm.api_key
-        )
+        self.llm = llm or get_llm_adapter()
         
         self.max_steps = max_steps or self.config.agent_max_steps
         self.timeout = timeout or self.config.agent_timeout
@@ -103,7 +99,7 @@ class BaseAgent(ABC):
                 history_str = "\n".join(self.history[-10:])  # 只保留最近10条
                 full_prompt += f"\n\n历史记录:\n{history_str}"
             
-            # 调用 LangChain 的 ChatOpenAI
+            # 调用 HelloAgent LLM
             response = await asyncio.wait_for(
                 self.llm.ainvoke(full_prompt),
                 timeout=self.timeout

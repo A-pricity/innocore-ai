@@ -152,7 +152,7 @@
 
 ### 后端
 - FastAPI - Web 框架
-- LangChain - AI 集成
+- HelloAgent - 多智能体框架
 - pdfplumber - PDF 解析
 - arxiv - ArXiv API
 - httpx - HTTP 客户端

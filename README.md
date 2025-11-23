@@ -10,6 +10,8 @@
 
 *基于多智能体协作的科研全流程自动化系统*
 
+*基于 HelloAgent 框架构建，支持灵活的 LLM 切换*
+
 [English](README_EN.md) | 简体中文
 
 </div>
@@ -244,7 +246,7 @@ python run.py
 
 - [HelloAgent](https://github.com/datawhalechina/hello-agents) - 多智能体框架
 - [FastAPI](https://fastapi.tiangolo.com/) - 现代 Web 框架
-- [LangChain](https://www.langchain.com/) - LLM 应用开发框架
+- [ArXiv API](https://arxiv.org/help/api) - 学术论文数用开发框架
 - [ArXiv API](https://arxiv.org/help/api) - 学术论文数据源
 
 ## 📮 联系方式
