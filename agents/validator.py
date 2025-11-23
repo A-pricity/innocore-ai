@@ -11,9 +11,9 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 import hashlib
 
-from .base import BaseAgent
-from ..core.database import db_manager
-from ..core.exceptions import AgentException, ExternalAPIException
+from agents.base import BaseAgent
+from core.database import db_manager
+from core.exceptions import AgentException, ExternalAPIException
 
 class ValidatorAgent(BaseAgent):
     """校验官智能体"""

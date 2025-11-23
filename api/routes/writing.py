@@ -6,11 +6,19 @@ from fastapi import APIRouter, HTTPException
 from typing import Dict, Any, Optional
 from pydantic import BaseModel
 import logging
-
-# from ...agents.controller import agent_controller, TaskType
+from langchain_openai import ChatOpenAI
+from core.config import get_config
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+# 初始化 LLM
+config = get_config()
+llm = ChatOpenAI(
+    model=config.llm.model_name,
+    temperature=0.7,
+    api_key=config.llm.api_key
+) if config.llm.api_key else None
 
 # Pydantic模型
 class WritingAssistanceRequest(BaseModel):
@@ -49,42 +57,82 @@ class SuggestRequest(BaseModel):
 
 @router.post("/coach", response_model=Dict[str, Any])
 async def writing_coach(request: WritingCoachRequest):
-    """写作助手"""
+    """写作助手 - 使用真实的 AI 处理"""
     try:
-        # 模拟写作助手处理结果
-        coach_results = {
-            "polish": {
-                "original": request.text,
-                "improved": f"Based on {request.style} academic writing standards, the text can be improved as follows: [Enhanced version of the text with better academic tone and clarity]",
-                "suggestions": ["Consider using more precise terminology", "Improve sentence structure", "Add proper citations"]
-            },
-            "translate": {
-                "original": request.text,
-                "translated": "[Professional English translation maintaining academic tone and technical accuracy]",
-                "notes": "Translation preserves technical meaning while adapting to English academic conventions"
-            },
-            "explain": {
-                "concept": request.text,
-                "explanation": "[Detailed explanation of the concept in accessible terms while maintaining technical accuracy]",
-                "examples": ["Example 1", "Example 2"]
-            },
-            "expand": {
-                "original": request.text,
-                "expanded": "[Expanded version with additional context, related work, and deeper analysis]",
-                "additions": ["Added background context", "Extended methodology description", "Included potential implications"]
-            }
+        if not llm:
+            raise HTTPException(status_code=503, detail="AI 服务未配置，请设置 OPENAI_API_KEY")
+        
+        logger.info(f"处理写作任务: {request.task}, 风格: {request.style}")
+        
+        # 根据任务类型生成提示词
+        prompts = {
+            "polish": f"""作为一位专业的学术写作编辑，请帮我润色以下文本，使其符合{request.style}学术写作标准：
+
+原文：
+{request.text}
+
+请提供：
+1. 润色后的文本（保持原意，提升表达质量）
+2. 具体的改进说明
+3. 写作建议
+
+要求：
+- 保持学术严谨性
+- 提升表达清晰度
+- 使用恰当的学术用语
+- 改善句子结构和逻辑流畅性""",
+            
+            "translate": f"""请将以下中文学术文本翻译成专业的英文学术论文表达：
+
+原文：
+{request.text}
+
+要求：
+- 保持学术专业性和准确性
+- 使用地道的英文学术表达
+- 符合{request.style}风格的学术写作规范
+- 保持技术术语的准确性""",
+            
+            "explain": f"""请详细解释以下概念或内容：
+
+{request.text}
+
+要求：
+- 用通俗易懂的语言解释
+- 保持技术准确性
+- 提供具体例子
+- 说明应用场景和重要性""",
+            
+            "expand": f"""请扩展以下内容，使其更加详细和完整：
+
+原文：
+{request.text}
+
+要求：
+- 添加必要的背景信息
+- 补充相关的理论支持
+- 扩展方法论描述
+- 增加潜在影响和应用
+- 保持逻辑连贯性
+- 符合{request.style}学术写作风格"""
         }
         
-        result = coach_results.get(request.task, coach_results["polish"])
+        prompt = prompts.get(request.task, prompts["polish"])
+        
+        # 调用 LLM 处理
+        response = await llm.ainvoke(prompt)
+        result_content = response.content if hasattr(response, 'content') else str(response)
         
         return {
             "success": True,
             "task": request.task,
             "style": request.style,
-            "result": result,
-            "timestamp": "2024-01-15T10:30:00Z"
+            "original": request.text,
+            "result": result_content
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"写作助手处理失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"处理失败: {str(e)}")

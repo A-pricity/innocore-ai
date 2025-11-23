@@ -14,8 +14,9 @@ class LLMProvider(Enum):
     """LLM提供商枚举"""
     OPENAI = "openai"
     CLAUDE = "claude"
-    MODELSCOPE = "modelscope"
-    OLLAMA = "ollama"
+    MODELSCOPE = "modelscope"  # 阿里云 ModelScope
+    OLLAMA = "ollama"  # 本地部署
+    DASHSCOPE = "dashscope"  # 阿里云灵积（推荐用于 Qwen 系列）
 
 class VectorDBType(Enum):
     """向量数据库类型枚举"""
@@ -27,7 +28,9 @@ class VectorDBType(Enum):
 class LLMConfig:
     """LLM配置"""
     provider: LLMProvider = LLMProvider.OPENAI
-    model_name: str = "gpt-4o"
+    model_name: str = "gpt-3.5-turbo"  # OpenAI: gpt-4, gpt-3.5-turbo, gpt-4-turbo-preview
+                                        # DashScope: qwen-turbo, qwen-plus, qwen-max
+                                        # ModelScope: qwen/Qwen2.5-7B-Instruct
     api_key: Optional[str] = None
     base_url: Optional[str] = None
     temperature: float = 0.7
@@ -119,6 +122,11 @@ class InnoCoreConfig:
         # 从环境变量加载配置
         self.llm.api_key = self.llm.api_key or os.getenv("OPENAI_API_KEY")
         self.llm.base_url = self.llm.base_url or os.getenv("OPENAI_BASE_URL")
+        
+        # 从环境变量加载模型名称（如果设置了）
+        env_model = os.getenv("OPENAI_MODEL") or os.getenv("LLM_MODEL")
+        if env_model:
+            self.llm.model_name = env_model
         
         self.database.password = self.database.password or os.getenv("DATABASE_PASSWORD")
         self.redis.password = self.redis.password or os.getenv("REDIS_PASSWORD")

@@ -6,6 +6,8 @@ from fastapi import APIRouter, HTTPException, Depends, Query, UploadFile, File
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 import logging
+import arxiv
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -26,32 +28,54 @@ class PaperResponse(BaseModel):
 
 @router.post("/search", response_model=Dict[str, Any])
 async def search_papers(request: PaperSearchRequest):
-    """搜索论文"""
+    """搜索论文 - 使用真实的 ArXiv API"""
     try:
-        # 模拟论文搜索结果
-        mock_papers = [
-            {
-                "id": "paper_001",
-                "title": f"Advances in {request.keywords}: A Comprehensive Survey",
-                "authors": ["John Smith", "Jane Doe", "Bob Johnson"],
-                "abstract": f"This paper presents a comprehensive survey of recent advances in {request.keywords}...",
-                "url": "https://arxiv.org/abs/2401.00001",
-                "published_date": "2024-01-15"
-            },
-            {
-                "id": "paper_002", 
-                "title": f"Deep Learning Approaches to {request.keywords}",
-                "authors": ["Alice Wang", "Charlie Brown"],
-                "abstract": f"We propose novel deep learning methods for addressing challenges in {request.keywords}...",
-                "url": "https://arxiv.org/abs/2401.00002",
-                "published_date": "2024-01-14"
+        papers = []
+        
+        if request.source == "arxiv" or request.source == "all":
+            # 使用 ArXiv API 搜索
+            logger.info(f"正在搜索 ArXiv: {request.keywords}")
+            
+            # 构建搜索查询
+            search = arxiv.Search(
+                query=request.keywords,
+                max_results=request.limit,
+                sort_by=arxiv.SortCriterion.SubmittedDate,
+                sort_order=arxiv.SortOrder.Descending
+            )
+            
+            # 获取搜索结果
+            for result in search.results():
+                paper = {
+                    "id": result.entry_id.split('/')[-1],
+                    "title": result.title,
+                    "authors": [author.name for author in result.authors],
+                    "abstract": result.summary.replace('\n', ' ').strip(),
+                    "url": result.entry_id,
+                    "published_date": result.published.strftime("%Y-%m-%d"),
+                    "pdf_url": result.pdf_url,
+                    "categories": result.categories,
+                    "primary_category": result.primary_category
+                }
+                papers.append(paper)
+            
+            logger.info(f"找到 {len(papers)} 篇论文")
+        
+        # 如果没有找到结果，返回提示
+        if not papers:
+            return {
+                "success": True,
+                "papers": [],
+                "total_found": 0,
+                "keywords": request.keywords,
+                "source": request.source,
+                "message": "未找到相关论文，请尝试其他关键词"
             }
-        ]
         
         return {
             "success": True,
-            "papers": mock_papers[:request.limit],
-            "total_found": len(mock_papers),
+            "papers": papers,
+            "total_found": len(papers),
             "keywords": request.keywords,
             "source": request.source
         }

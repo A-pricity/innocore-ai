@@ -9,20 +9,24 @@ from datetime import datetime
 import json
 import logging
 
-from hello_agents import HelloAgentsLLM
-from ..core.config import get_config
-from ..core.exceptions import AgentException, TimeoutException
+from langchain_openai import ChatOpenAI
+from core.config import get_config
+from core.exceptions import AgentException, TimeoutException
 
 logger = logging.getLogger(__name__)
 
 class BaseAgent(ABC):
     """基础智能体抽象类"""
     
-    def __init__(self, name: str, llm: HelloAgentsLLM = None, 
+    def __init__(self, name: str, llm: ChatOpenAI = None, 
                  max_steps: int = None, timeout: int = None):
         self.name = name
-        self.llm = llm or HelloAgentsLLM()
         self.config = get_config()
+        self.llm = llm or ChatOpenAI(
+            model=self.config.llm.model_name,
+            temperature=self.config.llm.temperature,
+            api_key=self.config.llm.api_key
+        )
         
         self.max_steps = max_steps or self.config.agent_max_steps
         self.timeout = timeout or self.config.agent_timeout
@@ -86,27 +90,31 @@ class BaseAgent(ABC):
     async def think(self, prompt: str, context: Dict = None) -> str:
         """调用LLM进行思考"""
         try:
-            messages = [{"role": "user", "content": prompt}]
+            # 构建完整的提示词
+            full_prompt = prompt
             
             # 添加上下文信息
             if context:
                 context_str = json.dumps(context, ensure_ascii=False, indent=2)
-                messages[0]["content"] = f"上下文信息:\n{context_str}\n\n任务:\n{prompt}"
+                full_prompt = f"上下文信息:\n{context_str}\n\n任务:\n{prompt}"
             
             # 添加历史记录
             if self.history:
                 history_str = "\n".join(self.history[-10:])  # 只保留最近10条
-                messages[0]["content"] += f"\n\n历史记录:\n{history_str}"
+                full_prompt += f"\n\n历史记录:\n{history_str}"
             
+            # 调用 LangChain 的 ChatOpenAI
             response = await asyncio.wait_for(
-                asyncio.to_thread(self.llm.think, messages),
+                self.llm.ainvoke(full_prompt),
                 timeout=self.timeout
             )
             
-            self._add_to_history(f"LLM prompt: {prompt}")
-            self._add_to_history(f"LLM response: {response}")
+            response_text = response.content if hasattr(response, 'content') else str(response)
             
-            return response
+            self._add_to_history(f"LLM prompt: {prompt}")
+            self._add_to_history(f"LLM response: {response_text}")
+            
+            return response_text
             
         except asyncio.TimeoutError:
             raise TimeoutException("LLM思考超时")

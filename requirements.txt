@@ -26,6 +26,7 @@ tiktoken==0.12.0
 
 # Vector Database
 chromadb==1.3.5
+qdrant-client==1.16.0
 
 # Deep Learning
 torch==2.9.1
@@ -73,3 +74,16 @@ grpcio==1.76.0
 kubernetes==34.1.0
 onnxruntime==1.23.2
 bcrypt==5.0.0
+
+# Literature Search & Processing
+feedparser==6.0.12
+beautifulsoup4==4.14.2
+lxml==6.0.2
+arxiv==2.3.1
+scholarly==1.7.11
+selenium==4.38.0
+
+# PDF Processing
+PyPDF2==3.0.1
+pdfplumber==0.11.0
+pypdf==3.17.4

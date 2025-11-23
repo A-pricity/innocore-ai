@@ -2,15 +2,27 @@
 分析相关API路由
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile, File
 from typing import Dict, Any, Optional, List
 from pydantic import BaseModel
 import logging
-
-# from ...agents.controller import agent_controller, TaskType
+import arxiv
+import os
+from langchain_openai import ChatOpenAI
+from core.config import get_config
+from utils.pdf_parser import pdf_parser
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+# 初始化 LLM
+config = get_config()
+llm = ChatOpenAI(
+    model=config.llm.model_name,
+    temperature=0.7,
+    api_key=config.llm.api_key,
+    base_url=config.llm.base_url
+) if config.llm.api_key else None
 
 # Pydantic模型
 class AnalysisRequest(BaseModel):
@@ -35,38 +47,266 @@ class PaperAnalysisRequest(BaseModel):
 
 @router.post("/analyze", response_model=Dict[str, Any])
 async def analyze_paper(request: PaperAnalysisRequest):
-    """分析论文"""
+    """分析论文 - 支持 ArXiv URL 和本地 PDF 文件"""
     try:
-        # 模拟论文分析结果
-        analysis_results = {
-            "summary": {
-                "title": "论文摘要分析",
-                "content": "该论文提出了一种创新的方法来解决当前领域的关键问题..."
-            },
-            "innovation": {
-                "title": "创新点分析", 
-                "content": "主要创新点包括：1) 新的算法架构 2) 更高效的训练方法 3) 在多个基准测试上的显著提升"
-            },
-            "comparison": {
-                "title": "对比分析",
-                "content": "与现有方法相比，本文方法在准确率上提升了15%，计算效率提高了30%"
-            },
-            "comprehensive": {
-                "title": "综合分析",
-                "content": "这是一篇高质量的研究论文，具有明确的理论贡献和实验验证..."
+        if not llm:
+            raise HTTPException(status_code=503, detail="AI 服务未配置，请设置 OPENAI_API_KEY")
+        
+        import re
+        paper_url = request.paper_url.strip()
+        
+        # 检查是否是本地上传的 PDF 文件
+        if paper_url.startswith('/uploads/') or paper_url.endswith('.pdf'):
+            logger.info(f"检测到本地 PDF 文件: {paper_url}")
+            
+            # 构建完整的文件路径
+            if paper_url.startswith('/uploads/'):
+                # 假设上传的文件在 downloads 目录
+                file_path = os.path.join('downloads', paper_url.replace('/uploads/', ''))
+            else:
+                file_path = paper_url
+            
+            # 检查文件是否存在
+            if not os.path.exists(file_path):
+                logger.warning(f"PDF 文件不存在: {file_path}")
+                raise HTTPException(status_code=404, detail=f"PDF 文件不存在: {paper_url}")
+            
+            # 解析 PDF 文件
+            logger.info(f"开始解析 PDF 文件: {file_path}")
+            pdf_result = await pdf_parser.parse_pdf(file_path)
+            
+            if not pdf_result.get("success"):
+                raise HTTPException(status_code=500, detail=pdf_result.get("error", "PDF 解析失败"))
+            
+            # 使用解析出的内容进行 AI 分析
+            title = pdf_result.get("title", "未知标题")
+            authors = pdf_result.get("authors", ["未知作者"])
+            abstract = pdf_result.get("abstract", "")
+            full_text = pdf_result.get("full_text", "")
+            
+            # 限制文本长度以避免超出 token 限制
+            text_for_analysis = full_text[:8000] if len(full_text) > 8000 else full_text
+            
+            # 根据分析类型生成提示词
+            prompts = {
+                "summary": f"""请对以下论文进行摘要分析：
+
+标题：{title}
+作者：{', '.join(authors)}
+摘要：{abstract}
+
+论文内容（前8000字符）：
+{text_for_analysis}
+
+请提供：
+1. 研究背景和动机
+2. 主要方法
+3. 核心贡献
+4. 实验结果
+5. 研究意义
+
+请用中文回答，保持专业和简洁。""",
+                
+                "innovation": f"""请分析以下论文的创新点：
+
+标题：{title}
+摘要：{abstract}
+
+论文内容：
+{text_for_analysis}
+
+请详细分析：
+1. 技术创新点
+2. 方法论创新
+3. 理论贡献
+4. 与现有工作的区别
+5. 潜在应用价值
+
+请用中文回答。""",
+                
+                "comparison": f"""请对以下论文进行对比分析：
+
+标题：{title}
+摘要：{abstract}
+
+论文内容：
+{text_for_analysis}
+
+请分析：
+1. 与传统方法的对比
+2. 优势和劣势
+3. 适用场景
+4. 性能提升
+5. 局限性
+
+请用中文回答。""",
+                
+                "comprehensive": f"""请对以下论文进行全面综合分析：
+
+标题：{title}
+作者：{', '.join(authors)}
+摘要：{abstract}
+
+论文内容：
+{text_for_analysis}
+
+请提供全面的分析，包括：
+1. 研究背景和意义
+2. 技术方法详解
+3. 创新点分析
+4. 实验验证
+5. 优缺点评价
+6. 未来研究方向
+7. 实际应用价值
+
+请用中文回答，保持专业和深度。"""
             }
+            
+            prompt = prompts.get(request.analysis_type, prompts["summary"])
+            
+            # 调用 LLM 进行分析
+            logger.info(f"开始 AI 分析，类型: {request.analysis_type}")
+            response = await llm.ainvoke(prompt)
+            analysis_content = response.content if hasattr(response, 'content') else str(response)
+            
+            return {
+                "success": True,
+                "paper_info": {
+                    "id": "local_pdf",
+                    "title": title,
+                    "authors": authors,
+                    "published_date": "N/A",
+                    "url": paper_url,
+                    "categories": ["本地文件"],
+                    "page_count": pdf_result.get("page_count", 0),
+                    "word_count": pdf_result.get("word_count", 0)
+                },
+                "analysis_type": request.analysis_type,
+                "analysis": analysis_content,
+                "abstract": abstract
+            }
+        
+        # ArXiv 论文处理
+        arxiv_patterns = [
+            r'arxiv\.org/abs/(\d+\.\d+)',
+            r'arxiv\.org/pdf/(\d+\.\d+)',
+            r'arXiv:(\d+\.\d+)',
+            r'\[(\d+\.\d+)v?\d*\]',
+            r'^(\d{4}\.\d{4,5})v?\d*$'
+        ]
+        
+        paper_id = None
+        for pattern in arxiv_patterns:
+            match = re.search(pattern, paper_url, re.IGNORECASE)
+            if match:
+                paper_id = match.group(1)
+                break
+        
+        if not paper_id:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"无效的输入。支持的格式：\n" +
+                       "- ArXiv URL: https://arxiv.org/abs/2511.16672\n" +
+                       "- ArXiv ID: 2511.16672\n" +
+                       "- 本地 PDF: 上传后自动填充"
+            )
+        
+        logger.info(f"正在分析 ArXiv 论文: {paper_id}")
+        
+        # 获取论文信息
+        search = arxiv.Search(id_list=[paper_id])
+        paper = next(search.results(), None)
+        
+        if not paper:
+            raise HTTPException(status_code=404, detail=f"未找到 ArXiv 论文: {paper_id}")
+        
+        # 根据分析类型生成提示词
+        prompts = {
+            "summary": f"""请对以下论文进行摘要分析：
+
+标题：{paper.title}
+作者：{', '.join([a.name for a in paper.authors])}
+摘要：{paper.summary}
+
+请提供：
+1. 研究背景和动机
+2. 主要方法
+3. 核心贡献
+4. 实验结果
+5. 研究意义
+
+请用中文回答，保持专业和简洁。""",
+            
+            "innovation": f"""请分析以下论文的创新点：
+
+标题：{paper.title}
+摘要：{paper.summary}
+
+请详细分析：
+1. 技术创新点
+2. 方法论创新
+3. 理论贡献
+4. 与现有工作的区别
+5. 潜在应用价值
+
+请用中文回答。""",
+            
+            "comparison": f"""请对以下论文进行对比分析：
+
+标题：{paper.title}
+摘要：{paper.summary}
+
+请分析：
+1. 与传统方法的对比
+2. 优势和劣势
+3. 适用场景
+4. 性能提升
+5. 局限性
+
+请用中文回答。""",
+            
+            "comprehensive": f"""请对以下论文进行全面综合分析：
+
+标题：{paper.title}
+作者：{', '.join([a.name for a in paper.authors])}
+摘要：{paper.summary}
+分类：{', '.join(paper.categories)}
+
+请提供全面的分析，包括：
+1. 研究背景和意义
+2. 技术方法详解
+3. 创新点分析
+4. 实验验证
+5. 优缺点评价
+6. 未来研究方向
+7. 实际应用价值
+
+请用中文回答，保持专业和深度。"""
         }
         
-        result = analysis_results.get(request.analysis_type, analysis_results["summary"])
+        prompt = prompts.get(request.analysis_type, prompts["summary"])
+        
+        # 调用 LLM 进行分析
+        response = await llm.ainvoke(prompt)
+        analysis_content = response.content if hasattr(response, 'content') else str(response)
         
         return {
             "success": True,
-            "paper_url": request.paper_url,
+            "paper_info": {
+                "id": paper_id,
+                "title": paper.title,
+                "authors": [a.name for a in paper.authors],
+                "published_date": paper.published.strftime("%Y-%m-%d"),
+                "url": paper.entry_id,
+                "categories": paper.categories
+            },
             "analysis_type": request.analysis_type,
-            "result": result,
-            "timestamp": "2024-01-15T10:30:00Z"
+            "analysis": analysis_content,
+            "abstract": paper.summary
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"论文分析失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"分析失败: {str(e)}")
@@ -278,3 +518,51 @@ async def batch_analyze_papers(paper_ids: List[str], user_id: Optional[str] = No
     except Exception as e:
         logger.error(f"批量分析论文失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/upload-pdf", response_model=Dict[str, Any])
+async def upload_pdf_for_analysis(file: UploadFile = File(...)):
+    """
+    上传 PDF 文件并解析
+    返回文件信息和解析结果
+    """
+    try:
+        # 检查文件类型
+        if not file.filename.endswith('.pdf'):
+            raise HTTPException(status_code=400, detail="只支持 PDF 文件")
+        
+        # 读取文件内容
+        logger.info(f"接收到 PDF 文件: {file.filename}")
+        pdf_bytes = await file.read()
+        
+        # 解析 PDF
+        pdf_result = await pdf_parser.parse_pdf_from_bytes(pdf_bytes, file.filename)
+        
+        if not pdf_result.get("success"):
+            raise HTTPException(status_code=500, detail=pdf_result.get("error", "PDF 解析失败"))
+        
+        # 保存文件到 downloads 目录
+        os.makedirs("downloads", exist_ok=True)
+        file_path = os.path.join("downloads", file.filename)
+        
+        with open(file_path, "wb") as f:
+            f.write(pdf_bytes)
+        
+        logger.info(f"PDF 文件已保存: {file_path}")
+        
+        return {
+            "success": True,
+            "filename": file.filename,
+            "file_path": f"/uploads/{file.filename}",
+            "title": pdf_result.get("title", "未知标题"),
+            "authors": pdf_result.get("authors", ["未知作者"]),
+            "abstract": pdf_result.get("abstract", "")[:500],  # 限制摘要长度
+            "page_count": pdf_result.get("page_count", 0),
+            "word_count": pdf_result.get("word_count", 0),
+            "message": "PDF 文件上传并解析成功，可以使用返回的 file_path 进行分析"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"PDF 上传失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"上传失败: {str(e)}")

@@ -8,10 +8,10 @@ import json
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 
-from .base import BaseAgent
-from ..core.database import db_manager
-from ..core.vector_store import vector_store_manager
-from ..core.exceptions import AgentException
+from agents.base import BaseAgent
+from core.database import db_manager
+from core.vector_store import vector_store_manager
+from core.exceptions import AgentException
 
 class CoachAgent(BaseAgent):
     """写作助教智能体"""

@@ -10,13 +10,13 @@ import json
 import logging
 from enum import Enum
 
-from .base import BaseAgent
-from .hunter import HunterAgent
-from .miner import MinerAgent
-from .coach import CoachAgent
-from .validator import ValidatorAgent
-from ..core.config import get_config
-from ..core.exceptions import AgentException, TimeoutException
+from agents.base import BaseAgent
+from agents.hunter import HunterAgent
+from agents.miner import MinerAgent
+from agents.coach import CoachAgent
+from agents.validator import ValidatorAgent
+from core.config import get_config
+from core.exceptions import AgentException, TimeoutException
 
 logger = logging.getLogger(__name__)
 

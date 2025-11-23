@@ -25,16 +25,22 @@ async def lifespan(app: FastAPI):
     # 启动时初始化
     logger.info("正在启动InnoCore AI...")
     
+    # 初始化数据库（可选）
     try:
-        # 初始化数据库
         await db_manager.initialize()
         logger.info("数据库初始化完成")
-        
-        # 初始化向量存储
+    except Exception as e:
+        logger.warning(f"数据库初始化失败（将以无数据库模式运行）: {str(e)}")
+    
+    # 初始化向量存储（可选）
+    try:
         await vector_store_manager.initialize()
         logger.info("向量存储初始化完成")
-        
-        # 初始化智能体控制器
+    except Exception as e:
+        logger.warning(f"向量存储初始化失败（将以无向量存储模式运行）: {str(e)}")
+    
+    # 初始化智能体控制器（可选）
+    try:
         await agent_controller.initialize()
         logger.info("智能体控制器初始化完成")
         
@@ -42,20 +48,19 @@ async def lifespan(app: FastAPI):
         import asyncio
         asyncio.create_task(agent_controller.start_task_processor())
         logger.info("任务处理器已启动")
-        
-        yield
-        
     except Exception as e:
-        logger.error(f"启动失败: {str(e)}")
-        raise
+        logger.warning(f"智能体控制器初始化失败: {str(e)}")
     
-    finally:
-        # 关闭时清理
-        logger.info("正在关闭InnoCore AI...")
-        await agent_controller.shutdown()
-        await db_manager.close()
-        await vector_store_manager.close()
-        logger.info("InnoCore AI已关闭")
+    logger.info("InnoCore AI 启动完成")
+    
+    yield
+    
+    # 关闭时清理
+    logger.info("正在关闭InnoCore AI...")
+    await agent_controller.shutdown()
+    await db_manager.close()
+    await vector_store_manager.close()
+    logger.info("InnoCore AI已关闭")
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -83,10 +88,26 @@ app.include_router(analysis.router, prefix="/api/v1/analysis", tags=["analysis"]
 app.include_router(writing.router, prefix="/api/v1/writing", tags=["writing"])
 app.include_router(citations.router, prefix="/api/v1/citations", tags=["citations"])
 
-# 根路径
+# 挂载静态文件
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
+
+# 获取项目根目录
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
+
+# 挂载静态资源
+if os.path.exists(os.path.join(FRONTEND_DIR, "static")):
+    app.mount("/static", StaticFiles(directory=os.path.join(FRONTEND_DIR, "static")), name="static")
+
+# 根路径 - 返回前端页面
 @app.get("/")
 async def root():
-    """根路径"""
+    """根路径 - 返回前端首页"""
+    index_path = os.path.join(FRONTEND_DIR, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
     return {
         "message": "Welcome to InnoCore AI API",
         "version": "0.1.0",

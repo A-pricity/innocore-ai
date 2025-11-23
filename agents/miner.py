@@ -9,10 +9,10 @@ import json
 import re
 from datetime import datetime
 
-from .base import BaseAgent
-from ..core.database import db_manager
-from ..core.vector_store import vector_store_manager
-from ..core.exceptions import AgentException
+from agents.base import BaseAgent
+from core.database import db_manager
+from core.vector_store import vector_store_manager
+from core.exceptions import AgentException
 
 class MinerAgent(BaseAgent):
     """洞察专家智能体"""

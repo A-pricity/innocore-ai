@@ -13,9 +13,9 @@ import hashlib
 import os
 from urllib.parse import urljoin, quote
 
-from .base import BaseAgent
-from ..core.database import db_manager
-from ..core.exceptions import AgentException, ExternalAPIException
+from agents.base import BaseAgent
+from core.database import db_manager
+from core.exceptions import AgentException, ExternalAPIException
 
 class HunterAgent(BaseAgent):
     """前哨探员智能体"""
