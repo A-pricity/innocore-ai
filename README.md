@@ -185,6 +185,17 @@ pip install -r requirements.txt
 python run.py
 ```
 
+## 演示效果
+
+### 主界面 - 双模式切换
+![主界面](docs/screenshots/01-主界面.png)
+
+### 论文搜索功能
+![论文搜索](docs/screenshots/02-论文搜索.png)
+
+### 深度分析功能
+![论文分析](docs/screenshots/03-论文分析.png)
+
 ## 📊 性能指标
 
 - **论文搜索**：~5秒（ArXiv API 响应时间）

@@ -66,3 +66,7 @@ htmlcov/
 *.pt
 *.ckpt
 models/checkpoints/
+
+# Submission helper files (for reference only, not to be committed to hello-agents)
+PR.md
+提交文件说明.md
