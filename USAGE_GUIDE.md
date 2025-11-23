@@ -25,6 +25,28 @@ python run.py
 python verify_system.py
 ```
 
+## 工作模式
+
+InnoCore AI 支持两种工作模式：
+
+### 🔹 单独模式（Individual Mode）
+独立使用每个智能体，适合：
+- 单一任务需求
+- 需要精细控制
+- 快速测试功能
+
+### 🔹 协调模式（Workflow Mode）⭐ 推荐
+自动协调所有智能体完成完整工作流，适合：
+- 完整的研究流程
+- 自动化批量处理
+- 生成综合报告
+
+**完整工作流程**：
+1. Hunter 搜索相关论文
+2. Miner 深度分析每篇论文
+3. Validator 生成标准引用
+4. Coach 撰写综合报告
+
 ## 功能使用
 
 ### 📚 Hunter - 论文搜索
@@ -141,6 +163,31 @@ python verify_system.py
 - ArXiv ID 自动提取
 - AI 辅助解析引用信息
 
+### 🔄 完整工作流（推荐）
+
+**功能**: 一键完成从搜索到报告的全流程
+
+**使用方法**:
+1. 切换到"协调模式"
+2. 输入研究关键词
+3. 选择搜索数量（3/5/10篇）
+4. 选择分析类型
+5. 选择引用格式
+6. 勾选"生成综合报告"（可选）
+7. 点击"启动完整工作流"
+
+**自动执行步骤**:
+- ✅ 步骤1: 搜索相关论文
+- ✅ 步骤2: 分析前3篇论文
+- ✅ 步骤3: 生成标准引用
+- ✅ 步骤4: 撰写综合报告（可选）
+
+**优势**:
+- 节省时间，一键完成
+- 自动协调，无需手动切换
+- 结果整合，便于查看
+- 适合批量研究
+
 ## API 使用
 
 ### 论文搜索 API
@@ -186,6 +233,32 @@ curl -X POST "http://localhost:8000/api/v1/citations/validate" \
   -d '{
     "citation": "Your citation here",
     "format": "bibtex"
+  }'
+```
+
+### 完整工作流 API
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/workflow/complete" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "keywords": "deep learning",
+    "limit": 5,
+    "analysis_type": "summary",
+    "citation_format": "bibtex",
+    "writing_task": "improve"
+  }'
+```
+
+### 简化工作流 API（仅搜索+分析）
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/workflow/search-and-analyze" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "keywords": "machine learning",
+    "limit": 3,
+    "analysis_type": "summary"
   }'
 ```
 

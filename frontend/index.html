@@ -509,7 +509,32 @@
 
             <section>
                 <h2>🚀 核心功能</h2>
+
+                <!-- 工作流模式选择 -->
+                <div
+                    style="margin-bottom: 20px; padding: 15px; background: #f0f7ff; border-radius: 8px; border-left: 4px solid #667eea;">
+                    <h3 style="margin: 0 0 10px 0; color: #667eea;">🔄 工作模式</h3>
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                        <label style="display: flex; align-items: center; cursor: pointer;">
+                            <input type="radio" name="work-mode" value="individual" checked style="margin-right: 8px;">
+                            <span>单独模式 - 独立使用每个智能体</span>
+                        </label>
+                        <label style="display: flex; align-items: center; cursor: pointer;">
+                            <input type="radio" name="work-mode" value="workflow" style="margin-right: 8px;">
+                            <span>协调模式 - 自动化完整工作流 ⭐</span>
+                        </label>
+                    </div>
+                </div>
+
                 <div class="features">
+                    <div class="feature-card" onclick="activateAgent('workflow')" id="workflow-card"
+                        style="display: none; grid-column: 1 / -1; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                        <h3>🔄 完整工作流</h3>
+                        <p>自动协调所有智能体：搜索论文 → 深度分析 → 生成引用 → 撰写报告</p>
+                        <button class="btn" style="background: white; color: #667eea;"
+                            onclick="event.stopPropagation(); activateAgent('workflow')">启动工作流</button>
+                    </div>
+
                     <div class="feature-card" onclick="activateAgent('hunter')" id="hunter-card">
                         <h3>🕵️ Hunter Agent</h3>
                         <p>智能文献搜索与监控，自动抓取 ArXiv、IEEE 等平台的最新论文</p>
@@ -652,6 +677,63 @@
                 </div>
                 <div class="response-area" id="validator-response"></div>
             </div>
+
+            <!-- Workflow 协调面板 -->
+            <div class="interaction-panel" id="workflow-panel">
+                <h3>🔄 完整工作流</h3>
+                <p style="color: #666; margin-bottom: 20px;">自动协调所有智能体完成完整的研究流程</p>
+
+                <div class="input-group">
+                    <label for="workflow-keywords">研究关键词</label>
+                    <input type="text" id="workflow-keywords" placeholder="例如: deep learning for computer vision">
+                </div>
+
+                <div class="input-group">
+                    <label for="workflow-limit">搜索论文数量</label>
+                    <select id="workflow-limit">
+                        <option value="3">3篇（快速）</option>
+                        <option value="5" selected>5篇（推荐）</option>
+                        <option value="10">10篇（详细）</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label for="workflow-analysis-type">分析类型</label>
+                    <select id="workflow-analysis-type">
+                        <option value="summary">摘要分析</option>
+                        <option value="innovation">创新点分析</option>
+                        <option value="comparison">对比分析</option>
+                        <option value="comprehensive">综合分析</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label for="workflow-citation-format">引用格式</label>
+                    <select id="workflow-citation-format">
+                        <option value="bibtex">BibTeX</option>
+                        <option value="apa">APA</option>
+                        <option value="ieee">IEEE</option>
+                        <option value="mla">MLA</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label>
+                        <input type="checkbox" id="workflow-generate-report" checked>
+                        生成综合报告
+                    </label>
+                </div>
+
+                <button class="btn" onclick="executeWorkflow()"
+                    style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">🚀 启动完整工作流</button>
+
+                <div class="loading" id="workflow-loading">
+                    <div class="spinner"></div>
+                    <p>工作流执行中，请稍候...</p>
+                </div>
+
+                <div class="response-area" id="workflow-response"></div>
+            </div>
         </main>
     </div>
 
@@ -662,7 +744,23 @@
         document.addEventListener('DOMContentLoaded', function () {
             checkSystemStatus();
             setupFileUpload();
+            setupWorkModeSwitch();
         });
+
+        // 设置工作模式切换
+        function setupWorkModeSwitch() {
+            const modeRadios = document.querySelectorAll('input[name="work-mode"]');
+            modeRadios.forEach(radio => {
+                radio.addEventListener('change', function () {
+                    const workflowCard = document.getElementById('workflow-card');
+                    if (this.value === 'workflow') {
+                        workflowCard.style.display = 'block';
+                    } else {
+                        workflowCard.style.display = 'none';
+                    }
+                });
+            });
+        }
 
         // 检查系统状态
         async function checkSystemStatus() {
@@ -855,6 +953,50 @@
             }
         }
 
+        // 执行完整工作流
+        async function executeWorkflow() {
+            const keywords = document.getElementById('workflow-keywords').value;
+            const limit = document.getElementById('workflow-limit').value;
+            const analysisType = document.getElementById('workflow-analysis-type').value;
+            const citationFormat = document.getElementById('workflow-citation-format').value;
+            const generateReport = document.getElementById('workflow-generate-report').checked;
+
+            if (!keywords.trim()) {
+                showError('workflow-response', '请输入研究关键词');
+                return;
+            }
+
+            showLoading('workflow-loading');
+
+            try {
+                const response = await fetch('/api/v1/workflow/complete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        keywords: keywords,
+                        limit: parseInt(limit),
+                        analysis_type: analysisType,
+                        citation_format: citationFormat,
+                        writing_task: generateReport ? 'improve' : null
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showSuccess('workflow-response', '🎉 工作流执行完成！', data);
+                } else {
+                    showError('workflow-response', data.detail || '工作流执行失败');
+                }
+            } catch (error) {
+                showError('workflow-response', `网络错误: ${error.message}`);
+            } finally {
+                hideLoading('workflow-loading');
+            }
+        }
+
         // 设置文件上传
         function setupFileUpload() {
             const uploadArea = document.getElementById('paper-upload-area');
@@ -956,8 +1098,12 @@
             let content = `<div class="success">✅ ${message}</div>`;
 
             if (data) {
+                // 工作流结果
+                if (data.steps && Array.isArray(data.steps)) {
+                    content += formatWorkflowResult(data);
+                }
                 // PDF 上传信息
-                if (data.upload_info) {
+                else if (data.upload_info) {
                     content += data.upload_info;
                 }
                 // 论文搜索结果
@@ -1297,6 +1443,100 @@
                         ⚠️ ${data.warnings.join('; ')}
                     </div>
                 `;
+            }
+
+            return html;
+        }
+
+        // 格式化工作流结果
+        function formatWorkflowResult(data) {
+            let html = `
+                <div class="result-header">
+                    <span>🔄 工作流执行结果</span>
+                    <span class="result-stats">${data.status === 'completed' ? '✅ 完成' : '⚠️ 部分完成'}</span>
+                </div>
+            `;
+
+            // 显示摘要
+            if (data.summary) {
+                html += `
+                    <div class="paper-card">
+                        <h4>📊 执行摘要</h4>
+                        <div class="meta">
+                            <span>📚 找到 ${data.summary.total_papers} 篇论文</span>
+                            <span>🧠 分析 ${data.summary.analyzed_papers} 篇</span>
+                            <span>📝 生成 ${data.summary.generated_citations} 条引用</span>
+                        </div>
+                        <p style="margin-top: 10px; color: #666;">关键词: ${data.summary.keywords}</p>
+                    </div>
+                `;
+            }
+
+            // 显示各步骤结果
+            if (data.steps && data.steps.length > 0) {
+                data.steps.forEach((step, index) => {
+                    const statusIcon = step.status === 'completed' ? '✅' : step.status === 'failed' ? '❌' : '⏳';
+
+                    html += `
+                        <div class="paper-card">
+                            <h4>${statusIcon} 步骤 ${step.step}: ${step.name}</h4>
+                    `;
+
+                    if (step.status === 'completed' && step.result) {
+                        // 论文搜索结果
+                        if (step.result.papers) {
+                            html += `<p>找到 ${step.result.total_found} 篇论文</p>`;
+                            step.result.papers.slice(0, 3).forEach((paper, i) => {
+                                html += `
+                                    <div style="margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+                                        <strong>${i + 1}. ${escapeHtml(paper.title)}</strong><br>
+                                        <small>作者: ${paper.authors.slice(0, 3).join(', ')}${paper.authors.length > 3 ? ' et al.' : ''}</small>
+                                    </div>
+                                `;
+                            });
+                        }
+
+                        // 分析结果
+                        if (step.result.analyses) {
+                            html += `<p>完成 ${step.result.total_analyzed} 篇论文分析</p>`;
+                            step.result.analyses.forEach((analysis, i) => {
+                                html += `
+                                    <div style="margin: 10px 0; padding: 10px; background: #f0f7ff; border-radius: 5px;">
+                                        <strong>${i + 1}. ${escapeHtml(analysis.title)}</strong>
+                                        <div class="markdown-content" style="margin-top: 10px;">
+                                            ${renderMarkdown(analysis.analysis.substring(0, 500) + '...')}
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                        }
+
+                        // 引用结果
+                        if (step.result.citations) {
+                            html += `<p>生成 ${step.result.total_citations} 条引用</p>`;
+                            const citationId = 'citations-' + Date.now();
+                            html += `<button class="copy-btn" onclick="copyToClipboard('${citationId}', event)">📋 复制全部引用</button>`;
+                            html += `<div id="${citationId}" style="margin-top: 10px;">`;
+                            step.result.citations.forEach((citation, i) => {
+                                html += `<p style="margin: 5px 0;">${i + 1}. ${escapeHtml(citation.formatted_citation)}</p>`;
+                            });
+                            html += '</div>';
+                        }
+
+                        // 报告结果
+                        if (step.result.report) {
+                            const reportId = 'report-' + Date.now();
+                            html += `<button class="copy-btn" onclick="copyToClipboard('${reportId}', event)">📋 复制报告</button>`;
+                            html += `<div class="markdown-content" id="${reportId}" style="margin-top: 10px;">`;
+                            html += renderMarkdown(step.result.report);
+                            html += '</div>';
+                        }
+                    } else if (step.status === 'failed') {
+                        html += `<p style="color: #f44336;">错误: ${step.error}</p>`;
+                    }
+
+                    html += '</div>';
+                });
             }
 
             return html;

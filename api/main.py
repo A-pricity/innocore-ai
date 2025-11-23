@@ -13,7 +13,7 @@ from core.config import get_config
 from core.database import db_manager
 from core.vector_store import vector_store_manager
 from agents.controller import agent_controller
-from .routes import papers, users, tasks, analysis, writing, citations
+from .routes import papers, users, tasks, analysis, writing, citations, workflow
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -87,6 +87,7 @@ app.include_router(tasks.router, prefix="/api/v1/tasks", tags=["tasks"])
 app.include_router(analysis.router, prefix="/api/v1/analysis", tags=["analysis"])
 app.include_router(writing.router, prefix="/api/v1/writing", tags=["writing"])
 app.include_router(citations.router, prefix="/api/v1/citations", tags=["citations"])
+app.include_router(workflow.router, prefix="/api/v1/workflow", tags=["workflow"])
 
 # 挂载静态文件
 from fastapi.staticfiles import StaticFiles
